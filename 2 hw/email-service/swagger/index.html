@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Service API - Swagger UI</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.10.0/swagger-ui.css">
+    <style>
+        html {
+            box-sizing: border-box;
+            overflow: -moz-scrollbars-vertical;
+            overflow-y: scroll;
+        }
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+        body {
+            margin: 0;
+            background: #fafafa;
+        }
+        .topbar {
+            background-color: #1f2937;
+            padding: 1rem 2rem;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .topbar h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .topbar .links {
+            display: flex;
+            gap: 1rem;
+        }
+        .topbar a {
+            color: #60a5fa;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .topbar a:hover {
+            text-decoration: underline;
+        }
+        .service-info {
+            background-color: #e5e7eb;
+            padding: 0.5rem 2rem;
+            font-size: 0.85rem;
+            color: #374151;
+        }
+        .service-info span {
+            margin-right: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <h1>📧 Email Service API</h1>
+        <div class="links">
+            <a href="/openapi.yaml" target="_blank">OpenAPI YAML</a>
+            <a href="/health" target="_blank">Health Check</a>
+        </div>
+    </div>
+    <div class="service-info">
+        <span><strong>User Service:</strong> /api/v1/users, /api/v1/auth</span>
+        <span><strong>Folder Service:</strong> /api/v1/folders</span>
+        <span><strong>Message Service:</strong> /api/v1/messages</span>
+    </div>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.0/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.0/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.onload = function() {
+            const ui = SwaggerUIBundle({
+                url: "/openapi.yaml",
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                defaultModelsExpandDepth: 1,
+                defaultModelExpandDepth: 1,
+                docExpansion: "list",
+                filter: true,
+                showRequestHeaders: true,
+                tryItOutEnabled: true,
+                persistAuthorization: true,
+                displayRequestDuration: true,
+                displayOperationId: false,
+                supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch']
+            });
+        };
+    </script>
+</body>
+</html>
