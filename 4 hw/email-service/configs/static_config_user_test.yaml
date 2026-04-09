@@ -1,0 +1,66 @@
+components_manager:
+    coro_pool:
+        initial_size: 500
+        max_size: 1000
+
+    task_processors:
+        main-task-processor:
+            worker_threads: 4
+            thread_name: main-worker
+        fs-task-processor:
+            worker_threads: 2
+            thread_name: fs-worker
+
+    default_task_processor: main-task-processor
+
+    components:
+        server:
+            listener:
+                port: 8081
+                task_processor: main-task-processor
+        logging:
+            fs-task-processor: fs-task-processor
+            loggers:
+                default:
+                    file_path: '@stderr'
+                    level: debug
+                    overflow_behavior: discard
+
+        testsuite-support: {}
+
+        dns-client:
+            fs-task-processor: fs-task-processor
+
+        postgres-db:
+            dbconnection: 'postgresql://email_user:email_pass@postgres-test:5432/email_test_db'
+            blocking_task_processor: fs-task-processor
+            dns_resolver: async
+            max_pool_size: 15
+            min_pool_size: 8
+
+        handler-ping:
+            path: /ping
+            method: GET
+            task_processor: main-task-processor
+            throttling_enabled: false
+            url_trailing_slash: strict-match
+
+        handler-create-user:
+            path: /api/v1/users
+            method: POST
+            task_processor: main-task-processor
+
+        handler-find-user-by-login:
+            path: /api/v1/users/by-login
+            method: GET
+            task_processor: main-task-processor
+
+        handler-search-users-by-name:
+            path: /api/v1/users/search
+            method: GET
+            task_processor: main-task-processor
+
+        handler-login:
+            path: /api/v1/auth/login
+            method: POST
+            task_processor: main-task-processor
