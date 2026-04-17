@@ -3,20 +3,21 @@
 #include <userver/components/component.hpp>
 #include <userver/formats/json.hpp>
 #include <userver/server/handlers/http_handler_json_base.hpp>
-#include <userver/storages/postgres/component.hpp>
+
+#include "../common/mongo_component.hpp"
 
 namespace email_service::message {
 
-int64_t ExtractUserIdFromContext(const userver::server::request::RequestContext& context) {
-    return context.GetData<int64_t>("user_id");
+std::string ExtractUserIdFromContext(const userver::server::request::RequestContext& context) {
+    return context.GetData<std::string>("user_id");  // ObjectId as string
 }
 
 CreateMessageHandler::CreateMessageHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context) {
-    auto pg_cluster = context.FindComponent<userver::components::Postgres>("postgres-db").GetCluster();
-    db_ = std::make_shared<Database>(pg_cluster);
+    auto& mongo_component = context.FindComponent<MongoComponent>("mongo-db");
+    db_ = mongo_component.GetDatabase();
 }
 
 std::string CreateMessageHandler::HandleRequestThrow(
@@ -25,14 +26,11 @@ std::string CreateMessageHandler::HandleRequestThrow(
     
     auto user_id = ExtractUserIdFromContext(context);
     
-    auto folder_id_str = request.GetPathArg("folderId");
-    int64_t folder_id;
-    try {
-        folder_id = std::stoll(folder_id_str);
-    } catch (...) {
+    auto folder_id = request.GetPathArg("folderId");  // ObjectId as string
+    if (folder_id.empty()) {
         request.SetResponseStatus(userver::server::http::HttpStatus::kBadRequest);
         return userver::formats::json::ToString(
-            userver::formats::json::MakeObject("error", "Invalid folder ID")
+            userver::formats::json::MakeObject("error", "Folder ID is required")
         );
     }
 
@@ -112,8 +110,8 @@ ListMessagesHandler::ListMessagesHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context) {
-    auto pg_cluster = context.FindComponent<userver::components::Postgres>("postgres-db").GetCluster();
-    db_ = std::make_shared<Database>(pg_cluster);
+    auto& mongo_component = context.FindComponent<MongoComponent>("mongo-db");
+    db_ = mongo_component.GetDatabase();
 }
 
 std::string ListMessagesHandler::HandleRequestThrow(
@@ -122,14 +120,11 @@ std::string ListMessagesHandler::HandleRequestThrow(
     
     auto user_id = ExtractUserIdFromContext(context);
     
-    auto folder_id_str = request.GetPathArg("folderId");
-    int64_t folder_id;
-    try {
-        folder_id = std::stoll(folder_id_str);
-    } catch (...) {
+    auto folder_id = request.GetPathArg("folderId");  // ObjectId as string
+    if (folder_id.empty()) {
         request.SetResponseStatus(userver::server::http::HttpStatus::kBadRequest);
         return userver::formats::json::ToString(
-            userver::formats::json::MakeObject("error", "Invalid folder ID")
+            userver::formats::json::MakeObject("error", "Folder ID is required")
         );
     }
 
@@ -154,8 +149,8 @@ GetMessageHandler::GetMessageHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context) {
-    auto pg_cluster = context.FindComponent<userver::components::Postgres>("postgres-db").GetCluster();
-    db_ = std::make_shared<Database>(pg_cluster);
+    auto& mongo_component = context.FindComponent<MongoComponent>("mongo-db");
+    db_ = mongo_component.GetDatabase();
 }
 
 std::string GetMessageHandler::HandleRequestThrow(
@@ -164,14 +159,11 @@ std::string GetMessageHandler::HandleRequestThrow(
     
     auto user_id = ExtractUserIdFromContext(context);
     
-    auto message_id_str = request.GetPathArg("messageId");
-    int64_t message_id;
-    try {
-        message_id = std::stoll(message_id_str);
-    } catch (...) {
+    auto message_id = request.GetPathArg("messageId");  // ObjectId as string
+    if (message_id.empty()) {
         request.SetResponseStatus(userver::server::http::HttpStatus::kBadRequest);
         return userver::formats::json::ToString(
-            userver::formats::json::MakeObject("error", "Invalid message ID")
+            userver::formats::json::MakeObject("error", "Message ID is required")
         );
     }
 

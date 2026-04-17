@@ -11,7 +11,7 @@
 namespace email_service {
 
 struct User {
-    std::optional<int64_t> id;
+    std::string id;  // MongoDB ObjectId as string
     std::string login;
     std::string email;
     std::string first_name;
@@ -24,8 +24,8 @@ struct User {
 };
 
 struct Folder {
-    std::optional<int64_t> id;
-    int64_t user_id;
+    std::string id;  // MongoDB ObjectId as string
+    std::string user_id;  // MongoDB ObjectId as string (reference to user)
     std::string name;
     std::chrono::system_clock::time_point created_at;
 
@@ -34,9 +34,9 @@ struct Folder {
 };
 
 struct Message {
-    std::optional<int64_t> id;
-    int64_t folder_id;
-    int64_t sender_id;
+    std::string id;  // MongoDB ObjectId as string
+    std::string folder_id;  // MongoDB ObjectId as string (reference to folder)
+    std::string sender_id;  // MongoDB ObjectId as string (reference to user)
     std::string recipient_email;
     std::string subject;
     std::string body;
@@ -49,7 +49,7 @@ struct Message {
 
 struct AuthToken {
     std::string token;
-    int64_t user_id;
+    std::string user_id;  // MongoDB ObjectId as string
     std::chrono::system_clock::time_point expires_at;
 
     userver::formats::json::Value ToJson() const;

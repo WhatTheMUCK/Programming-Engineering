@@ -3,10 +3,11 @@
 #include <userver/components/component.hpp>
 #include <userver/formats/json.hpp>
 #include <userver/server/handlers/http_handler_json_base.hpp>
-#include <userver/storages/postgres/component.hpp>
 #include <userver/crypto/hash.hpp>
 #include <userver/utils/datetime.hpp>
 #include <jwt-cpp/jwt.h>
+
+#include "../common/mongo_component.hpp"
 
 namespace email_service::user {
 
@@ -14,8 +15,8 @@ CreateUserHandler::CreateUserHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context) {
-    auto pg_cluster = context.FindComponent<userver::components::Postgres>("postgres-db").GetCluster();
-    db_ = std::make_shared<Database>(pg_cluster);
+    auto& mongo_component = context.FindComponent<MongoComponent>("mongo-db");
+    db_ = mongo_component.GetDatabase();
 }
 
 std::string CreateUserHandler::HandleRequestThrow(
@@ -67,8 +68,8 @@ FindUserByLoginHandler::FindUserByLoginHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context) {
-    auto pg_cluster = context.FindComponent<userver::components::Postgres>("postgres-db").GetCluster();
-    db_ = std::make_shared<Database>(pg_cluster);
+    auto& mongo_component = context.FindComponent<MongoComponent>("mongo-db");
+    db_ = mongo_component.GetDatabase();
 }
 
 std::string FindUserByLoginHandler::HandleRequestThrow(
@@ -98,8 +99,8 @@ SearchUsersByNameHandler::SearchUsersByNameHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context) {
-    auto pg_cluster = context.FindComponent<userver::components::Postgres>("postgres-db").GetCluster();
-    db_ = std::make_shared<Database>(pg_cluster);
+    auto& mongo_component = context.FindComponent<MongoComponent>("mongo-db");
+    db_ = mongo_component.GetDatabase();
 }
 
 std::string SearchUsersByNameHandler::HandleRequestThrow(
@@ -128,16 +129,17 @@ LoginHandler::LoginHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context) {
-    auto pg_cluster = context.FindComponent<userver::components::Postgres>("postgres-db").GetCluster();
-    db_ = std::make_shared<Database>(pg_cluster);
+    auto& mongo_component = context.FindComponent<MongoComponent>("mongo-db");
+    db_ = mongo_component.GetDatabase();
 }
 
-std::string LoginHandler::GenerateToken(int64_t user_id) const {
+std::string LoginHandler::GenerateToken(const std::string& user_id) const {
     // Generate JWT token with 24 hour expiration using kazuho-picojson traits
+    // user_id is MongoDB ObjectId as string
     auto token = ::jwt::create<::jwt::traits::kazuho_picojson>()
         .set_issuer("email-service")
         .set_type("JWT")
-        .set_payload_claim("user_id", ::jwt::claim(std::to_string(user_id)))
+        .set_payload_claim("user_id", ::jwt::claim(user_id))
         .set_issued_at(std::chrono::system_clock::now())
         .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
         .sign(::jwt::algorithm::hs256{"your-secret-key-change-in-production"});
@@ -184,8 +186,8 @@ std::string LoginHandler::HandleRequestThrow(
     }
 
     AuthToken token;
-    token.token = GenerateToken(*user->id);
-    token.user_id = *user->id;
+    token.token = GenerateToken(user->id);  // ObjectId string
+    token.user_id = user->id;  // ObjectId string
     token.expires_at = std::chrono::system_clock::now() + std::chrono::hours(24);
 
     return userver::formats::json::ToString(token.ToJson());

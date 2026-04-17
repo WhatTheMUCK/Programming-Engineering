@@ -1,18 +1,18 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: email-postgres
+  mongodb:
+    image: mongo:7.0
+    container_name: email-mongodb
     environment:
-      POSTGRES_DB: email_db
-      POSTGRES_USER: email_user
-      POSTGRES_PASSWORD: email_pass
+      MONGO_INITDB_ROOT_USERNAME: email_user
+      MONGO_INITDB_ROOT_PASSWORD: email_pass
+      MONGO_INITDB_DATABASE: email_db
     ports:
-      - "5432:5432"
+      - "27017:27017"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - mongo_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U email_user -d email_db"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,8 +31,10 @@ services:
       - "8081:8081"
     volumes:
       - ./configs/static_config_user.yaml:/app/configs/static_config_user.yaml:ro
+    environment:
+      MONGO_URI: mongodb://email_user:email_pass@mongodb:27017/email_db
     depends_on:
-      postgres:
+      mongodb:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/ping"]
@@ -54,8 +56,10 @@ services:
       - "8082:8082"
     volumes:
       - ./configs/static_config_folder.yaml:/app/configs/static_config_folder.yaml:ro
+    environment:
+      MONGO_URI: mongodb://email_user:email_pass@mongodb:27017/email_db
     depends_on:
-      postgres:
+      mongodb:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/ping"]
@@ -77,8 +81,10 @@ services:
       - "8083:8083"
     volumes:
       - ./configs/static_config_message.yaml:/app/configs/static_config_message.yaml:ro
+    environment:
+      MONGO_URI: mongodb://email_user:email_pass@mongodb:27017/email_db
     depends_on:
-      postgres:
+      mongodb:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/ping"]
@@ -104,18 +110,18 @@ services:
       - folder-service
       - message-service
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/ping"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
       start_period: 10s
     networks:
       - email-network
     restart: unless-stopped
 
+volumes:
+  mongo_data:
+
 networks:
   email-network:
     driver: bridge
-
-volumes:
-  postgres_data:

@@ -5,10 +5,10 @@ project(email-service CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Enable PostgreSQL support, disable other features we don't need
-set(USERVER_FEATURE_POSTGRESQL ON CACHE BOOL "" FORCE)
+# Enable MongoDB support, disable other features we don't need
+set(USERVER_FEATURE_POSTGRESQL OFF CACHE BOOL "" FORCE)
 set(USERVER_FEATURE_PATCH_LIBPQ OFF CACHE BOOL "" FORCE)
-set(USERVER_FEATURE_MONGODB OFF CACHE BOOL "" FORCE)
+set(USERVER_FEATURE_MONGODB ON CACHE BOOL "" FORCE)
 set(USERVER_FEATURE_REDIS OFF CACHE BOOL "" FORCE)
 set(USERVER_FEATURE_CLICKHOUSE OFF CACHE BOOL "" FORCE)
 set(USERVER_FEATURE_GRPC OFF CACHE BOOL "" FORCE)
@@ -21,7 +21,7 @@ set(USERVER_FEATURE_FORMAT OFF CACHE BOOL "" FORCE)
 set(USERVER_FEATURE_CHAOTIC OFF CACHE BOOL "" FORCE)
 
 # Try to find preinstalled userver first, otherwise fetch from source
-find_package(userver QUIET COMPONENTS core postgresql)
+find_package(userver QUIET COMPONENTS core mongodb)
 if(NOT userver_FOUND)
     message(STATUS "userver not found, fetching from source via CPM...")
     include(FetchContent)
@@ -34,14 +34,16 @@ if(NOT userver_FOUND)
     FetchContent_MakeAvailable(userver)
 endif()
 
-# Find PostgreSQL client library
-find_package(PostgreSQL REQUIRED)
-if(NOT PostgreSQL_FOUND)
-    message(FATAL_ERROR "PostgreSQL client library (libpq) not found")
-endif()
+# Find MongoDB C driver using pkg-config
+include(FindPkgConfig)
+pkg_check_modules(MONGOC REQUIRED libmongoc-1.0)
+pkg_check_modules(BSON REQUIRED libbson-1.0)
+pkg_check_modules(MONGOCXX REQUIRED libmongocxx)
+pkg_check_modules(BSONCXX REQUIRED libbsoncxx)
 
-message(STATUS "PostgreSQL libraries: ${PostgreSQL_LIBRARIES}")
-message(STATUS "PostgreSQL include dirs: ${PostgreSQL_INCLUDE_DIRS}")
+# MongoDB C++ driver paths
+set(MONGOCXX_INCLUDE_DIRS /usr/local/include/mongocxx/v_noabi)
+set(BSONCXX_INCLUDE_DIRS /usr/local/include/bsoncxx/v_noabi)
 
 # JWT-CPP is header-only, we just need to include it
 # It will be installed in /usr/local/include/jwt-cpp
@@ -59,13 +61,18 @@ add_executable(${PROJECT_NAME}-user
 
 target_include_directories(${PROJECT_NAME}-user PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${PostgreSQL_INCLUDE_DIRS}
+    ${MONGOCXX_INCLUDE_DIRS}
+    ${BSONCXX_INCLUDE_DIRS}
+    ${MONGOC_INCLUDE_DIRS}
+    ${BSON_INCLUDE_DIRS}
 )
 
 target_link_libraries(${PROJECT_NAME}-user PRIVATE
     userver::core
-    userver::postgresql
-    ${PostgreSQL_LIBRARIES}
+    ${MONGOCXX_LIBRARIES}
+    ${BSONCXX_LIBRARIES}
+    ${MONGOC_LIBRARIES}
+    ${BSON_LIBRARIES}
 )
 
 # Folder Service executable
@@ -80,13 +87,18 @@ add_executable(${PROJECT_NAME}-folder
 
 target_include_directories(${PROJECT_NAME}-folder PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${PostgreSQL_INCLUDE_DIRS}
+    ${MONGOCXX_INCLUDE_DIRS}
+    ${BSONCXX_INCLUDE_DIRS}
+    ${MONGOC_INCLUDE_DIRS}
+    ${BSON_INCLUDE_DIRS}
 )
 
 target_link_libraries(${PROJECT_NAME}-folder PRIVATE
     userver::core
-    userver::postgresql
-    ${PostgreSQL_LIBRARIES}
+    ${MONGOCXX_LIBRARIES}
+    ${BSONCXX_LIBRARIES}
+    ${MONGOC_LIBRARIES}
+    ${BSON_LIBRARIES}
 )
 
 # Message Service executable
@@ -101,13 +113,18 @@ add_executable(${PROJECT_NAME}-message
 
 target_include_directories(${PROJECT_NAME}-message PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${PostgreSQL_INCLUDE_DIRS}
+    ${MONGOCXX_INCLUDE_DIRS}
+    ${BSONCXX_INCLUDE_DIRS}
+    ${MONGOC_INCLUDE_DIRS}
+    ${BSON_INCLUDE_DIRS}
 )
 
 target_link_libraries(${PROJECT_NAME}-message PRIVATE
     userver::core
-    userver::postgresql
-    ${PostgreSQL_LIBRARIES}
+    ${MONGOCXX_LIBRARIES}
+    ${BSONCXX_LIBRARIES}
+    ${MONGOC_LIBRARIES}
+    ${BSON_LIBRARIES}
 )
 
 # Install targets

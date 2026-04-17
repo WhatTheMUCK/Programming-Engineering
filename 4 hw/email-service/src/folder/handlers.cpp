@@ -3,20 +3,21 @@
 #include <userver/components/component.hpp>
 #include <userver/formats/json.hpp>
 #include <userver/server/handlers/http_handler_json_base.hpp>
-#include <userver/storages/postgres/component.hpp>
+
+#include "../common/mongo_component.hpp"
 
 namespace email_service::folder {
 
-int64_t ExtractUserIdFromContext(const userver::server::request::RequestContext& context) {
-    return context.GetData<int64_t>("user_id");
+std::string ExtractUserIdFromContext(const userver::server::request::RequestContext& context) {
+    return context.GetData<std::string>("user_id");  // ObjectId as string
 }
 
 CreateFolderHandler::CreateFolderHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context) {
-    auto pg_cluster = context.FindComponent<userver::components::Postgres>("postgres-db").GetCluster();
-    db_ = std::make_shared<Database>(pg_cluster);
+    auto& mongo_component = context.FindComponent<MongoComponent>("mongo-db");
+    db_ = mongo_component.GetDatabase();
 }
 
 std::string CreateFolderHandler::HandleRequestThrow(
@@ -60,8 +61,8 @@ ListFoldersHandler::ListFoldersHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context) {
-    auto pg_cluster = context.FindComponent<userver::components::Postgres>("postgres-db").GetCluster();
-    db_ = std::make_shared<Database>(pg_cluster);
+    auto& mongo_component = context.FindComponent<MongoComponent>("mongo-db");
+    db_ = mongo_component.GetDatabase();
 }
 
 std::string ListFoldersHandler::HandleRequestThrow(

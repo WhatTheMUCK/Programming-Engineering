@@ -41,7 +41,7 @@ JwtChecker::AuthCheckResult JwtChecker::CheckAuth(
     
     if (decoded.has_payload_claim("user_id")) {
       auto user_id_claim = decoded.get_payload_claim("user_id");
-      int64_t user_id = std::stoll(user_id_claim.as_string());
+      std::string user_id = user_id_claim.as_string();  // ObjectId as string
       context.SetData("user_id", user_id);
     }
     

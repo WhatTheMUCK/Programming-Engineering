@@ -5,21 +5,13 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Add PostgreSQL 16 repository
+# Install base build dependencies
 RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    lsb-release \
-    && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
-    && echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
-    && apt-get update
-
-# Install all build dependencies in one layer
-RUN apt-get install -y \
     build-essential \
     cmake \
     git \
     wget \
+    curl \
     pkg-config \
     ccache \
     ninja-build \
@@ -48,17 +40,50 @@ RUN apt-get install -y \
     liblz4-dev \
     libzstd-dev \
     libjemalloc-dev \
-    # PostgreSQL 16 client and server development libraries
-    postgresql-16 \
-    postgresql-client-16 \
-    postgresql-server-dev-16 \
-    libpq-dev \
-    # LDAP and Kerberos libraries (required by userver PostgreSQL support)
-    libldap2-dev \
-    libkrb5-dev \
     # JSON
     nlohmann-json3-dev \
+    # mongo-c-driver build deps
+    libsasl2-dev \
+    libsnappy-dev \
+    libmongoc-dev \
+    libbson-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Build and install mongo-c-driver (libbson + libmongoc) from source
+# userver requires >= 1.16.0; we use 1.24.0 (compatible with mongo-cxx-driver r3.7.0)
+RUN cd /tmp && \
+    wget -q https://github.com/mongodb/mongo-c-driver/releases/download/1.24.0/mongo-c-driver-1.24.0.tar.gz && \
+    tar xzf mongo-c-driver-1.24.0.tar.gz && \
+    cmake -S /tmp/mongo-c-driver-1.24.0 -B /tmp/mongo-c-driver-build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF \
+          -DENABLE_TESTS=OFF \
+          -DENABLE_EXAMPLES=OFF \
+          -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake --build /tmp/mongo-c-driver-build -j2 && \
+    cmake --install /tmp/mongo-c-driver-build && \
+    ldconfig && \
+    rm -rf /tmp/mongo-c-driver-1.24.0* /tmp/mongo-c-driver-build
+
+# Build and install mongo-cxx-driver (C++ driver)
+# Use r3.7.0 which is compatible with mongo-c-driver 1.24.0
+# Use limited parallelism (j2) and disable tests to avoid OOM
+RUN cd /tmp && \
+    wget -q https://github.com/mongodb/mongo-cxx-driver/releases/download/r3.7.0/mongo-cxx-driver-r3.7.0.tar.gz && \
+    tar xzf mongo-cxx-driver-r3.7.0.tar.gz && \
+    cd mongo-cxx-driver-r3.7.0 && \
+    mkdir -p build && \
+    cd build && \
+    cmake -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=/usr/local \
+          -DBSONCXX_POLY_USE_MNMLSTC=1 \
+          -DENABLE_TESTS=OFF \
+          .. && \
+    cmake --build . -j2 && \
+    cmake --install . && \
+    ldconfig && \
+    cd /tmp && \
+    rm -rf mongo-cxx-driver-r3.7.0*
 
 # Install JWT-CPP library (header-only)
 RUN cd /tmp && \
@@ -83,8 +108,7 @@ RUN pip3 install --no-cache-dir \
     pytest-asyncio \
     PyJWT \
     aiohttp \
-    yandex-taxi-testsuite \
-    psycopg2-binary
+    yandex-taxi-testsuite
 
 # Set working directory
 WORKDIR /app
@@ -95,9 +119,13 @@ COPY . /app
 # Build the services (userver is fetched via FetchContent during cmake)
 RUN mkdir -p build && \
     cd build && \
+    PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib/aarch64-linux-gnu/pkgconfig:/usr/local/lib64/pkgconfig:/usr/local/lib/x86_64-linux-gnu/pkgconfig \
     cmake -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_PREFIX_PATH=/usr/local \
+          -DMONGOCXX_INCLUDE_DIRS=/usr/local/include/mongocxx/v_noabi \
+          -DBSONCXX_INCLUDE_DIRS=/usr/local/include/bsoncxx/v_noabi \
           .. && \
-    make -j2
+    cmake --build . -j$(nproc)
 
 # Copy binaries to /app
 RUN cp /app/build/email-service-user /app/email-service-user && \

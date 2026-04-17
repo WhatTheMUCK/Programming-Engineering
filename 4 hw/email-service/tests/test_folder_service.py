@@ -343,10 +343,12 @@ async def test_folder_response_structure(service_client):
     assert 'user_id' in json_response
     assert 'created_at' in json_response
     
-    # Verify types
-    assert isinstance(json_response['id'], int)
+    # Verify types - now using MongoDB ObjectId strings (24 hex characters)
+    assert isinstance(json_response['id'], str)
+    assert len(json_response['id']) == 24  # ObjectId is 24 hex characters
     assert isinstance(json_response['name'], str)
-    assert isinstance(json_response['user_id'], int)
+    assert isinstance(json_response['user_id'], str)
+    assert len(json_response['user_id']) == 24  # ObjectId is 24 hex characters
     assert isinstance(json_response['created_at'], str)
 
 

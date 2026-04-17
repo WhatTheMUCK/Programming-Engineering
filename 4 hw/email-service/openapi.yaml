@@ -32,9 +32,10 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
-          example: 1
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439011"
         login:
           type: string
           example: "john_doe"
@@ -103,11 +104,13 @@ components:
       properties:
         token:
           type: string
-          example: "1"
+          description: JWT authentication token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
         user_id:
-          type: integer
-          format: int64
-          example: 1
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439011"
         expires_at:
           type: string
           format: date-time
@@ -116,13 +119,15 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
-          example: 1
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439012"
         user_id:
-          type: integer
-          format: int64
-          example: 1
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439011"
         name:
           type: string
           example: "Inbox"
@@ -145,17 +150,20 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
-          example: 1
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439013"
         folder_id:
-          type: integer
-          format: int64
-          example: 1
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439012"
         sender_id:
-          type: integer
-          format: int64
-          example: 1
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439011"
         recipient_email:
           type: string
           format: email
@@ -404,9 +412,9 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
-          example: 1
+            type: string
+            format: objectid
+          example: "69e35b19f00a961ed03d88b8"
       requestBody:
         required: true
         content:
@@ -446,9 +454,9 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
-          example: 1
+            type: string
+            format: objectid
+          example: "69e35b19f00a961ed03d88b8"
       responses:
         '200':
           description: Messages retrieved successfully
@@ -485,9 +493,9 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
-          example: 1
+            type: string
+            format: objectid
+          example: "69e35b19f00a961ed03d88bc"
       responses:
         '200':
           description: Message retrieved successfully

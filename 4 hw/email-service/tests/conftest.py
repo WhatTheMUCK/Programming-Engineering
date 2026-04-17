@@ -4,17 +4,14 @@ import os
 import json
 import logging
 import sys
-import psycopg2
-from psycopg2 import sql
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure, OperationFailure
 
-# Get service URL from environment or use default (nginx gateway)
-SERVICE_URL = os.getenv('SERVICE_URL', 'http://localhost:8080')
+# Get service URL from environment or use default test gateway
+SERVICE_URL = os.getenv('SERVICE_URL', 'http://host.containers.internal:18080')
 
-DB_HOST = os.getenv('DB_HOST', 'postgres-test')
-DB_PORT = os.getenv('DB_PORT', '5432')
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb://mongo-test:27017/')
 DB_NAME = os.getenv('DB_NAME', 'email_test_db')
-DB_USER = os.getenv('DB_USER', 'email_user')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'email_pass')
 
 logger = logging.getLogger(__name__)
 
@@ -99,48 +96,35 @@ class ServiceClient:
 def clear_database():
     """Clear all test data from the test database"""
     try:
-        print(f"[DEBUG] Attempting to connect to test database: {DB_HOST}:{DB_PORT}/{DB_NAME}", file=sys.stderr)
-        conn = psycopg2.connect(
-            host=DB_HOST,
-            port=int(DB_PORT),
-            database=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            connect_timeout=5
-        )
-        cursor = conn.cursor()
+        print(f"[DEBUG] Attempting to connect to test database: {MONGO_URI}{DB_NAME}", file=sys.stderr)
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        db = client[DB_NAME]
         
+        # Test connection
+        client.admin.command('ping')
         print(f"[DEBUG] Successfully connected to test database", file=sys.stderr)
         
-        # Disable foreign key constraints temporarily
-        cursor.execute("SET session_replication_role = 'replica';")
+        # Delete all data from collections
+        result_messages = db.messages.delete_many({})
+        result_folders = db.folders.delete_many({})
+        result_users = db.users.delete_many({})
         
-        # Delete all data from tables
-        cursor.execute("DELETE FROM messages;")
-        cursor.execute("DELETE FROM folders;")
-        cursor.execute("DELETE FROM users;")
-        
-        # Reset sequences
-        cursor.execute("ALTER SEQUENCE users_id_seq RESTART WITH 1;")
-        cursor.execute("ALTER SEQUENCE folders_id_seq RESTART WITH 1;")
-        cursor.execute("ALTER SEQUENCE messages_id_seq RESTART WITH 1;")
-        
-        # Re-enable foreign key constraints
-        cursor.execute("SET session_replication_role = 'origin';")
-        
-        conn.commit()
+        print(f"[DEBUG] Test database cleared successfully.", file=sys.stderr)
+        print(f"[DEBUG] Deleted {result_messages.deleted_count} messages", file=sys.stderr)
+        print(f"[DEBUG] Deleted {result_folders.deleted_count} folders", file=sys.stderr)
+        print(f"[DEBUG] Deleted {result_users.deleted_count} users", file=sys.stderr)
         
         # Verify deletion
-        cursor.execute("SELECT COUNT(*) FROM users;")
-        user_count = cursor.fetchone()[0]
-        print(f"[DEBUG] Test database cleared successfully. Users remaining: {user_count}", file=sys.stderr)
+        user_count = db.users.count_documents({})
+        print(f"[DEBUG] Users remaining: {user_count}", file=sys.stderr)
         
-        cursor.close()
-        conn.close()
-    except psycopg2.OperationalError as e:
+        client.close()
+    except ConnectionFailure as e:
         print(f"[WARNING] Failed to connect to test database: {e}", file=sys.stderr)
-        print(f"[WARNING] DB_HOST={DB_HOST}, DB_PORT={DB_PORT}, DB_NAME={DB_NAME}, DB_USER={DB_USER}", file=sys.stderr)
-        print(f"[WARNING] Make sure postgres-test container is running with --profile test", file=sys.stderr)
+        print(f"[WARNING] MONGO_URI={MONGO_URI}, DB_NAME={DB_NAME}", file=sys.stderr)
+        print(f"[WARNING] Make sure mongo-test container is running with --profile test", file=sys.stderr)
+    except OperationFailure as e:
+        print(f"[WARNING] Failed to clear test database: {e}", file=sys.stderr)
     except Exception as e:
         print(f"[WARNING] Failed to clear test database: {e}", file=sys.stderr)
 

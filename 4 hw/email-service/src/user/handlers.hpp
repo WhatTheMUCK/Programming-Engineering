@@ -72,7 +72,7 @@ public:
 
 private:
     std::shared_ptr<Database> db_;
-    std::string GenerateToken(int64_t user_id) const;
+    std::string GenerateToken(const std::string& user_id) const;
 };
 
 void AppendUserHandlers(userver::components::ComponentList& component_list);

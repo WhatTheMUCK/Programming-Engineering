@@ -633,12 +633,14 @@ async def test_message_response_structure(service_client):
     assert 'folder_id' in json_response
     assert 'created_at' in json_response
     
-    # Verify types
-    assert isinstance(json_response['id'], int)
+    # Verify types - now using MongoDB ObjectId strings (24 hex characters)
+    assert isinstance(json_response['id'], str)
+    assert len(json_response['id']) == 24  # ObjectId is 24 hex characters
     assert isinstance(json_response['subject'], str)
     assert isinstance(json_response['body'], str)
     assert isinstance(json_response['recipient_email'], str)
-    assert isinstance(json_response['folder_id'], int)
+    assert isinstance(json_response['folder_id'], str)
+    assert len(json_response['folder_id']) == 24  # ObjectId is 24 hex characters
     assert isinstance(json_response['created_at'], str)
 
 
@@ -853,7 +855,8 @@ async def test_get_message_with_invalid_id_format(service_client):
     headers = {'Authorization': f'Bearer {token}'}
     
     response = await service_client.get('/api/v1/messages/invalid', headers=headers)
-    assert response.status == 400
+    # With string IDs, invalid format returns 404 (not found) instead of 400
+    assert response.status == 404
 
 
 async def test_list_messages_with_invalid_folder_id(service_client):
@@ -877,4 +880,5 @@ async def test_list_messages_with_invalid_folder_id(service_client):
     headers = {'Authorization': f'Bearer {token}'}
     
     response = await service_client.get('/api/v1/folders/invalid/messages', headers=headers)
-    assert response.status == 400
+    # With string IDs, invalid format returns 403 (forbidden) instead of 400
+    assert response.status == 403

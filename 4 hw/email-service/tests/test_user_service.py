@@ -195,7 +195,9 @@ async def test_login_success(service_client):
     assert 'token' in json_response
     assert 'user_id' in json_response
     assert 'expires_at' in json_response
-    assert json_response['user_id'] > 0
+    # Now user_id is a MongoDB ObjectId string (24-character hex)
+    assert isinstance(json_response['user_id'], str)
+    assert len(json_response['user_id']) == 24  # ObjectId is 24 hex characters
 
 
 async def test_login_invalid_credentials(service_client):

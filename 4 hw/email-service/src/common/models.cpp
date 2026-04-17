@@ -8,9 +8,7 @@ namespace email_service {
 // User
 userver::formats::json::Value User::ToJson() const {
     userver::formats::json::ValueBuilder builder;
-    if (id) {
-        builder["id"] = *id;
-    }
+    builder["id"] = id;  // ObjectId as string
     builder["login"] = login;
     builder["email"] = email;
     builder["first_name"] = first_name;
@@ -22,7 +20,7 @@ userver::formats::json::Value User::ToJson() const {
 User User::FromJson(const userver::formats::json::Value& json) {
     User user;
     if (json.HasMember("id")) {
-        user.id = json["id"].As<int64_t>();
+        user.id = json["id"].As<std::string>();
     }
     user.login = json["login"].As<std::string>();
     user.email = json["email"].As<std::string>();
@@ -37,10 +35,8 @@ User User::FromJson(const userver::formats::json::Value& json) {
 // Folder
 userver::formats::json::Value Folder::ToJson() const {
     userver::formats::json::ValueBuilder builder;
-    if (id) {
-        builder["id"] = *id;
-    }
-    builder["user_id"] = user_id;
+    builder["id"] = id;  // ObjectId as string
+    builder["user_id"] = user_id;  // ObjectId as string (reference to user)
     builder["name"] = name;
     builder["created_at"] = userver::utils::datetime::Timestring(created_at);
     return builder.ExtractValue();
@@ -49,10 +45,10 @@ userver::formats::json::Value Folder::ToJson() const {
 Folder Folder::FromJson(const userver::formats::json::Value& json) {
     Folder folder;
     if (json.HasMember("id")) {
-        folder.id = json["id"].As<int64_t>();
+        folder.id = json["id"].As<std::string>();
     }
     if (json.HasMember("user_id")) {
-        folder.user_id = json["user_id"].As<int64_t>();
+        folder.user_id = json["user_id"].As<std::string>();
     }
     folder.name = json["name"].As<std::string>();
     return folder;
@@ -61,11 +57,9 @@ Folder Folder::FromJson(const userver::formats::json::Value& json) {
 // Message
 userver::formats::json::Value Message::ToJson() const {
     userver::formats::json::ValueBuilder builder;
-    if (id) {
-        builder["id"] = *id;
-    }
-    builder["folder_id"] = folder_id;
-    builder["sender_id"] = sender_id;
+    builder["id"] = id;  // ObjectId as string
+    builder["folder_id"] = folder_id;  // ObjectId as string (reference to folder)
+    builder["sender_id"] = sender_id;  // ObjectId as string (reference to user)
     builder["recipient_email"] = recipient_email;
     builder["subject"] = subject;
     builder["body"] = body;
@@ -77,13 +71,13 @@ userver::formats::json::Value Message::ToJson() const {
 Message Message::FromJson(const userver::formats::json::Value& json) {
     Message message;
     if (json.HasMember("id")) {
-        message.id = json["id"].As<int64_t>();
+        message.id = json["id"].As<std::string>();
     }
     if (json.HasMember("folder_id")) {
-        message.folder_id = json["folder_id"].As<int64_t>();
+        message.folder_id = json["folder_id"].As<std::string>();
     }
     if (json.HasMember("sender_id")) {
-        message.sender_id = json["sender_id"].As<int64_t>();
+        message.sender_id = json["sender_id"].As<std::string>();
     }
     message.recipient_email = json["recipient_email"].As<std::string>();
     message.subject = json["subject"].As<std::string>();
@@ -96,7 +90,7 @@ Message Message::FromJson(const userver::formats::json::Value& json) {
 userver::formats::json::Value AuthToken::ToJson() const {
     userver::formats::json::ValueBuilder builder;
     builder["token"] = token;
-    builder["user_id"] = user_id;
+    builder["user_id"] = user_id;  // ObjectId as string
     builder["expires_at"] = userver::utils::datetime::Timestring(expires_at);
     return builder.ExtractValue();
 }
