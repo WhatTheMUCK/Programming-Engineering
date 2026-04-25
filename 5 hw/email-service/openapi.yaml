@@ -1,0 +1,523 @@
+openapi: 3.0.3
+info:
+  title: Email Service API
+  description: REST API for email service with users, folders, and messages
+  version: 1.0.0
+  contact:
+    name: Email Service Team
+
+servers:
+  - url: http://localhost:8080
+    description: API Gateway - Unified entry point for all services
+
+tags:
+  - name: Authentication
+    description: User authentication operations
+  - name: Users
+    description: User management operations
+  - name: Folders
+    description: Folder management operations
+  - name: Messages
+    description: Message management operations
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Simple token-based authentication (user_id as token)
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439011"
+        login:
+          type: string
+          example: "john_doe"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        first_name:
+          type: string
+          example: "John"
+        last_name:
+          type: string
+          example: "Doe"
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - login
+        - email
+        - first_name
+        - last_name
+
+    CreateUserRequest:
+      type: object
+      properties:
+        login:
+          type: string
+          example: "john_doe"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        first_name:
+          type: string
+          example: "John"
+        last_name:
+          type: string
+          example: "Doe"
+        password:
+          type: string
+          format: password
+          example: "securePassword123"
+      required:
+        - login
+        - email
+        - first_name
+        - last_name
+        - password
+
+    LoginRequest:
+      type: object
+      properties:
+        login:
+          type: string
+          example: "john_doe"
+        password:
+          type: string
+          format: password
+          example: "securePassword123"
+      required:
+        - login
+        - password
+
+    AuthToken:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT authentication token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user_id:
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439011"
+        expires_at:
+          type: string
+          format: date-time
+
+    Folder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439012"
+        user_id:
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439011"
+        name:
+          type: string
+          example: "Inbox"
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - name
+
+    CreateFolderRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Sent"
+      required:
+        - name
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439013"
+        folder_id:
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439012"
+        sender_id:
+          type: string
+          format: objectId
+          description: MongoDB ObjectId as 24-character hex string
+          example: "507f1f77bcf86cd799439011"
+        recipient_email:
+          type: string
+          format: email
+          example: "recipient@example.com"
+        subject:
+          type: string
+          example: "Meeting tomorrow"
+        body:
+          type: string
+          example: "Let's meet at 10 AM"
+        is_sent:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+
+    CreateMessageRequest:
+      type: object
+      properties:
+        recipient_email:
+          type: string
+          format: email
+          example: "recipient@example.com"
+        subject:
+          type: string
+          example: "Meeting tomorrow"
+        body:
+          type: string
+          example: "Let's meet at 10 AM"
+        send_immediately:
+          type: boolean
+          example: false
+          description: If true, send the message immediately via SMTP
+      required:
+        - recipient_email
+        - subject
+        - body
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Error message"
+
+paths:
+  /api/v1/users:
+    post:
+      tags:
+        - Users
+      summary: Create a new user
+      description: Register a new user in the system
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      description: Authenticate user and receive access token
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthToken'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/users/by-login:
+    get:
+      tags:
+        - Users
+      summary: Find user by login
+      description: Search for a user by their login
+      operationId: findUserByLogin
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: login
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "john_doe"
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/users/search:
+    get:
+      tags:
+        - Users
+      summary: Search users by name mask
+      description: Search for users by first name and last name mask
+      operationId: searchUsersByName
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: mask
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "John"
+      responses:
+        '200':
+          description: Users found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/folders:
+    post:
+      tags:
+        - Folders
+      summary: Create a new folder
+      description: Create a new mail folder for the authenticated user
+      operationId: createFolder
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFolderRequest'
+      responses:
+        '201':
+          description: Folder created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Folder'
+        '409':
+          description: Folder already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      tags:
+        - Folders
+      summary: List all folders
+      description: Get all folders for the authenticated user
+      operationId: listFolders
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Folders retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Folder'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/folders/{folderId}/messages:
+    post:
+      tags:
+        - Messages
+      summary: Create a new message in folder
+      description: Create a new message in the specified folder
+      operationId: createMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: objectid
+          example: "69e35b19f00a961ed03d88b8"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageRequest'
+      responses:
+        '201':
+          description: Message created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '403':
+          description: Access denied to this folder
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      tags:
+        - Messages
+      summary: List messages in folder
+      description: Get all messages in the specified folder
+      operationId: listMessages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: objectid
+          example: "69e35b19f00a961ed03d88b8"
+      responses:
+        '200':
+          description: Messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+        '403':
+          description: Access denied to this folder
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/messages/{messageId}:
+    get:
+      tags:
+        - Messages
+      summary: Get message by ID
+      description: Retrieve a specific message by its ID
+      operationId: getMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: objectid
+          example: "69e35b19f00a961ed03d88bc"
+      responses:
+        '200':
+          description: Message retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Access denied to this message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

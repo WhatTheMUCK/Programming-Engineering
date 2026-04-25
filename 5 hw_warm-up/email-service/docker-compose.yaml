@@ -1,0 +1,127 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: email-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: email_user
+      MONGO_INITDB_ROOT_PASSWORD: email_pass
+      MONGO_INITDB_DATABASE: email_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-user-service
+    command: ["/app/email-service-user", "--config", "/app/configs/static_config_user.yaml"]
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./configs/static_config_user.yaml:/app/configs/static_config_user.yaml:ro
+    environment:
+      MONGO_URI: mongodb://email_user:email_pass@mongodb:27017/email_db
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  folder-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-folder-service
+    command: ["/app/email-service-folder", "--config", "/app/configs/static_config_folder.yaml"]
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./configs/static_config_folder.yaml:/app/configs/static_config_folder.yaml:ro
+    environment:
+      MONGO_URI: mongodb://email_user:email_pass@mongodb:27017/email_db
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  message-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-message-service
+    command: ["/app/email-service-message", "--config", "/app/configs/static_config_message.yaml"]
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./configs/static_config_message.yaml:/app/configs/static_config_message.yaml:ro
+    environment:
+      MONGO_URI: mongodb://email_user:email_pass@mongodb:27017/email_db
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: email-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./swagger:/usr/share/nginx/html/swagger:ro
+      - ./openapi.yaml:/usr/share/nginx/html/openapi.yaml:ro
+    depends_on:
+      - user-service
+      - folder-service
+      - message-service
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+
+networks:
+  email-network:
+    driver: bridge

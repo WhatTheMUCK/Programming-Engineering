@@ -1,0 +1,236 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: email-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: email_user
+      MONGO_INITDB_ROOT_PASSWORD: email_pass
+      MONGO_INITDB_DATABASE: email_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-user-service
+    command: ["/app/email-service-user", "--config", "/app/configs/static_config_user.yaml"]
+    ports:
+      - "8081:8081"
+      - "9091:9091"
+    volumes:
+      - ./configs/static_config_user.yaml:/app/configs/static_config_user.yaml:ro
+    environment:
+      MONGO_URI: mongodb://email_user:email_pass@mongodb:27017/email_db
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  folder-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-folder-service
+    command: ["/app/email-service-folder", "--config", "/app/configs/static_config_folder.yaml"]
+    ports:
+      - "8082:8082"
+      - "9092:9092"
+    volumes:
+      - ./configs/static_config_folder.yaml:/app/configs/static_config_folder.yaml:ro
+    environment:
+      MONGO_URI: mongodb://email_user:email_pass@mongodb:27017/email_db
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  message-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-message-service
+    command: ["/app/email-service-message", "--config", "/app/configs/static_config_message.yaml"]
+    ports:
+      - "8083:8083"
+      - "9093:9093"
+    volumes:
+      - ./configs/static_config_message.yaml:/app/configs/static_config_message.yaml:ro
+    environment:
+      MONGO_URI: mongodb://email_user:email_pass@mongodb:27017/email_db
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: email-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./swagger:/usr/share/nginx/html/swagger:ro
+      - ./openapi.yaml:/usr/share/nginx/html/openapi.yaml:ro
+    depends_on:
+      - user-service
+      - folder-service
+      - message-service
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: email-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: email-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: email-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9100 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: email-nginx-exporter
+    ports:
+      - "9113:9113"
+    command:
+      - '-nginx.scrape-uri=http://nginx:80/metrics'
+    depends_on:
+      - nginx
+    networks:
+      - email-network
+    restart: unless-stopped
+
+  mongodb-exporter:
+    image: bitnami/mongodb-exporter:latest
+    container_name: email-mongodb-exporter
+    ports:
+      - "9216:9216"
+    environment:
+      - MONGODB_URI=mongodb://email_user:email_pass@mongodb:27017/email_db
+    depends_on:
+      - mongodb
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9216' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - email-network
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  email-network:
+    driver: bridge

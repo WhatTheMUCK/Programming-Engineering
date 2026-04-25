@@ -1,0 +1,4 @@
+# yaml-language-server: $schema=https://github.com/userver-framework/userver/blob/master/schemas/config_service.yaml
+
+mongo-db:
+    uri: $MONGO_URI
